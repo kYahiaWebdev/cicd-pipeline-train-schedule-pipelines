@@ -9,66 +9,16 @@ pipeline {
       }
     }
 
-    stage('StagingDeploy') {
+    stage('Build Docker Image') {
       when {
         branch 'master'
       }
       steps {
-        withCredentials([usernamePassword(credentialsId: 'servers_login', usernameVariable: 'USERNAME', passwordVariable: 'USERPASS')]) {
-          sshPublisher (
-            failOnError: true,
-              continueOnError: false,
-              publishers: [
-                  sshPublisherDesc(
-                    configName: "staging-server",
-                    sshCredentials: [
-                      username: "$USERNAME",
-                      encryptedPassphrase: "$USERPASS"
-                    ],
-                    transfers: [
-                      sshTransfer(
-                        sourceFiles: 'dist/trainSchedule.zip',
-                        removePrefix: 'dist/',
-                        remoteDirectory: '/tmp',
-                        execCommand: 'sudo /usr/bin/systemctl stop train-schedule && rm -rf /opt/train-schedule/* && unzip /tmp/trainSchedule.zip -d /opt/train-schedule/ && sudo /usr/bin/systemctl start train-schedule'
-                      )
-                    ]
-                  )
-              ]
-          )
-        }
-      }
-    }
-
-    stage('ProdDeploy') {
-      when {
-        branch 'master'
-      }
-      steps {
-        input 'Confirm update ?'
-        milestone(1)
-        withCredentials([usernamePassword(credentialsId: 'servers_login', usernameVariable: 'USERNAME', passwordVariable: 'USERPASS')]) {
-          sshPublisher (
-            failOnError: true,
-              continueOnError: false,
-              publishers: [
-                  sshPublisherDesc(
-                    configName: "prod-server",
-                    sshCredentials: [
-                      username: "$USERNAME",
-                      encryptedPassphrase: "$USERPASS"
-                    ],
-                    transfers: [
-                      sshTransfer(
-                        sourceFiles: 'dist/trainSchedule.zip',
-                        removePrefix: 'dist/',
-                        remoteDirectory: '/tmp',
-                        execCommand: 'sudo /usr/bin/systemctl stop train-schedule && rm -rf /opt/train-schedule/* && unzip /tmp/trainSchedule.zip -d /opt/train-schedule/ && sudo /usr/bin/systemctl start train-schedule'
-                      )
-                    ]
-                  )
-              ]
-          )
+        script {
+          app = docker.build("kyahia/train-schedule")
+          app.inside {
+            sh 'echo $(curl localhist:8080)'
+          }
         }
       }
     }
